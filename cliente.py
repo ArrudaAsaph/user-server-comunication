@@ -61,6 +61,15 @@ class Client:
         self.host = host
         self.port = port
         self.system_info = ComputerInfo()
+        self.key = "minhachave"  # Chave para criptografia XOR (deve ser a mesma do servidor)
+
+    def xor_cipher(self, input_data):
+        """Aplica a criptografia XOR aos dados."""
+        output_data = bytearray()
+        key_len = len(self.key)
+        for i in range(len(input_data)):
+            output_data.append(input_data[i] ^ ord(self.key[i % key_len]))
+        return bytes(output_data)
 
     def connect(self):
         """Estabelece a conexão com o servidor e envia os dados."""
@@ -69,9 +78,13 @@ class Client:
                 client_socket.connect((self.host, self.port))
                 print(f"🔗 Conectado ao servidor {self.host}:{self.port}")
 
-                # Enviar dados formatados do sistema
-                json_data = json.dumps(self.system_info.formatar_dados())
-                client_socket.send(json_data.encode())
+                # Formata os dados do sistema
+                json_data = json.dumps(self.system_info.formatar_dados()).encode()
+
+                # Criptografa os dados antes de enviar
+                encrypted_data = self.xor_cipher(json_data)
+                print(f"🔒 Dados criptografados: {encrypted_data.hex()}")  # Exibe os dados criptografados em hexadecimal
+                client_socket.send(encrypted_data)
                 print("✅ Dados do sistema enviados ao servidor.")
 
                 # Menu de interação
@@ -94,5 +107,5 @@ class Client:
                 print(f"❌ Erro ao conectar ou comunicar com o servidor: {e}")
 
 if __name__ == "__main__":
-    client = Client("192.168.15.11", 8080)
+    client = Client("192.168.15.14", 8080)
     client.connect()
