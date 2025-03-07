@@ -24,6 +24,14 @@ int clientCount = 0;
 CRITICAL_SECTION cs;
 int serverRunning = 1;  // Variável para controlar o estado do servidor
 
+// Função para criptografar/descriptografar usando XOR
+void xor_cipher(const char *input, char *output, const char *key, int length) {
+    int key_len = strlen(key);
+    for (int i = 0; i < length; i++) {
+        output[i] = input[i] ^ key[i % key_len]; // Aplica XOR entre o caractere e a chave
+    }
+}
+
 void save_clients_to_json() {
     EnterCriticalSection(&cs);
     cJSON *root = cJSON_CreateArray();
@@ -32,9 +40,21 @@ void save_clients_to_json() {
         cJSON *clientObj = cJSON_CreateObject();
         cJSON_AddStringToObject(clientObj, "ip", clients[i].ip);
         cJSON_AddNumberToObject(clientObj, "port", clients[i].port);
+
+        // Criptografa os dados antes de adicionar ao JSON
         if (clients[i].data) {
-            cJSON_AddItemToObject(clientObj, "data", cJSON_Duplicate(clients[i].data, 1));
+            char *json_data = cJSON_Print(clients[i].data);  // Converte os dados para string JSON
+            char encrypted_data[BUFFER_SIZE];
+            const char *key = "minhachave";  // Chave para criptografia XOR
+
+            // Aplica a criptografia XOR aos dados
+            xor_cipher(json_data, encrypted_data, key, strlen(json_data));
+
+            // Adiciona os dados criptografados ao JSON
+            cJSON_AddStringToObject(clientObj, "encrypted_data", encrypted_data);
+            free(json_data);  // Libera a memória alocada para a string JSON
         }
+
         cJSON_AddItemToArray(root, clientObj);
     }
 
@@ -73,13 +93,20 @@ void remove_client(int index) {
 DWORD WINAPI handle_client(LPVOID arg) {
     ClientInfo *client = (ClientInfo *)arg;
     char buffer[BUFFER_SIZE];
+    char decrypted_buffer[BUFFER_SIZE];
+    const char *key = "minhachave";  // Chave para criptografia XOR (deve ser a mesma do cliente)
 
     // Recebe dados do cliente
     int bytesReceived = recv(client->socket, buffer, BUFFER_SIZE, 0);
     if (bytesReceived > 0) {
-        buffer[bytesReceived] = '\0';
+        // Descriptografa os dados
+        xor_cipher(buffer, decrypted_buffer, key, bytesReceived);
+        decrypted_buffer[bytesReceived] = '\0';  // Garante que a string seja bem formatada
+        printf("Dados recebidos de %s:%d -> %s\n", client->ip, client->port, decrypted_buffer);
+
+        // Armazena os dados descriptografados
         EnterCriticalSection(&cs);
-        client->data = cJSON_Parse(buffer);
+        client->data = cJSON_Parse(decrypted_buffer);
         LeaveCriticalSection(&cs);
         save_clients_to_json();
     }
