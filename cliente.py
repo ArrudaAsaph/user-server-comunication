@@ -35,13 +35,13 @@ class ComputerInfo:
                 return (temperatures[0].CurrentTemperature / 10.0) - 273.15
         except Exception as e:
             print(f"Erro ao obter temperatura: {e}")
-        return None  # Retorna None se não for possível obter
+        return None 
 
     def calcular_media(self):
         """Calcula a média simples dos dados."""
         valores = [self.cpu, self.ram, self.disk]
         if self.temp is not None:
-            valores.append(self.temp)  # Só adiciona se houver temperatura
+            valores.append(self.temp)  
         return sum(valores) / len(valores)
 
     def formatar_dados(self):
@@ -61,7 +61,7 @@ class Client:
         self.host = host
         self.port = port
         self.system_info = ComputerInfo()
-        self.key = "minhachave"  # Chave para criptografia XOR (deve ser a mesma do servidor)
+        self.key = "minhachave"  
 
     def xor_cipher(self, input_data):
         """Aplica a criptografia XOR aos dados."""
@@ -78,12 +78,12 @@ class Client:
                 client_socket.connect((self.host, self.port))
                 print(f"🔗 Conectado ao servidor {self.host}:{self.port}")
 
-                # Formata os dados do sistema
+               
                 json_data = json.dumps(self.system_info.formatar_dados()).encode()
 
-                # Criptografa os dados antes de enviar
+                # Criptografa os dados 
                 encrypted_data = self.xor_cipher(json_data)
-                print(f"🔒 Dados criptografados: {encrypted_data.hex()}")  # Exibe os dados criptografados em hexadecimal
+                print(f"🔒 Dados criptografados: {encrypted_data.hex()}")  
                 client_socket.send(encrypted_data)
                 print("✅ Dados do sistema enviados ao servidor.")
 
@@ -96,7 +96,7 @@ class Client:
 
                     print(response)
 
-                    # Enviar escolha do usuário
+                    
                     choice = input("Escolha uma opção: ")
                     client_socket.send(choice.encode())
 
