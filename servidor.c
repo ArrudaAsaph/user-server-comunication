@@ -14,21 +14,21 @@
 typedef struct {
     SOCKET socket;
     struct sockaddr_in address;
-    char ip[16];  // Correção para IPv4
+    char ip[16];  
     int port;
-    cJSON *data;  // Armazena os dados recebidos do cliente
+    cJSON *data;  //  recebidos do cliente
 } ClientInfo;
 
 ClientInfo clients[MAX_CLIENTS];
 int clientCount = 0;
 CRITICAL_SECTION cs;
-int serverRunning = 1;  // Variável para controlar o estado do servidor
+int serverRunning = 1;  
 
-// Função para criptografar/descriptografar usando XOR
+// Criptografia XOR
 void xor_cipher(const char *input, char *output, const char *key, int length) {
     int key_len = strlen(key);
     for (int i = 0; i < length; i++) {
-        output[i] = input[i] ^ key[i % key_len]; // Aplica XOR entre o caractere e a chave
+        output[i] = input[i] ^ key[i % key_len]; 
     }
 }
 
@@ -41,18 +41,18 @@ void save_clients_to_json() {
         cJSON_AddStringToObject(clientObj, "ip", clients[i].ip);
         cJSON_AddNumberToObject(clientObj, "port", clients[i].port);
 
-        // Criptografa os dados antes de adicionar ao JSON
+        // CRIPTOGRAFIA JSON
         if (clients[i].data) {
-            char *json_data = cJSON_Print(clients[i].data);  // Converte os dados para string JSON
+            char *json_data = cJSON_Print(clients[i].data);  
             char encrypted_data[BUFFER_SIZE];
-            const char *key = "minhachave";  // Chave para criptografia XOR
+            const char *key = "minhachave";  
 
-            // Aplica a criptografia XOR aos dados
+            
             xor_cipher(json_data, encrypted_data, key, strlen(json_data));
 
-            // Adiciona os dados criptografados ao JSON
+            
             cJSON_AddStringToObject(clientObj, "encrypted_data", encrypted_data);
-            free(json_data);  // Libera a memória alocada para a string JSON
+            free(json_data);  
         }
 
         cJSON_AddItemToArray(root, clientObj);
@@ -69,22 +69,22 @@ void save_clients_to_json() {
     free(jsonString);
     LeaveCriticalSection(&cs);
 }
-
+// Remove o cliente da lista
 void remove_client(int index) {
     EnterCriticalSection(&cs);
 
-    // Libera a memória alocada para os dados do cliente
+    
     if (clients[index].data) {
         cJSON_Delete(clients[index].data);
     }
 
-    // Remove o cliente da lista
+    
     for (int i = index; i < clientCount - 1; i++) {
         clients[i] = clients[i + 1];
     }
     clientCount--;
 
-    // Atualiza o arquivo JSON
+   
     save_clients_to_json();
 
     LeaveCriticalSection(&cs);
@@ -94,29 +94,29 @@ DWORD WINAPI handle_client(LPVOID arg) {
     ClientInfo *client = (ClientInfo *)arg;
     char buffer[BUFFER_SIZE];
     char decrypted_buffer[BUFFER_SIZE];
-    const char *key = "minhachave";  // Chave para criptografia XOR (deve ser a mesma do cliente)
+    const char *key = "minhachave";  // Chave 
 
-    // Recebe dados do cliente
+    
     int bytesReceived = recv(client->socket, buffer, BUFFER_SIZE, 0);
     if (bytesReceived > 0) {
-        // Descriptografa os dados
+        // Descriptografa 
         xor_cipher(buffer, decrypted_buffer, key, bytesReceived);
-        decrypted_buffer[bytesReceived] = '\0';  // Garante que a string seja bem formatada
+        decrypted_buffer[bytesReceived] = '\0';  
         printf("Dados recebidos de %s:%d -> %s\n", client->ip, client->port, decrypted_buffer);
 
-        // Armazena os dados descriptografados
+        
         EnterCriticalSection(&cs);
         client->data = cJSON_Parse(decrypted_buffer);
         LeaveCriticalSection(&cs);
         save_clients_to_json();
     }
 
-    // Envia opções ao cliente
+    //  opções ao cliente
     char *msg = "Escolha uma opção: \n1. listar \n2. detalhar \n3. sair\n";
     send(client->socket, msg, strlen(msg), 0);
 
     while (1) {
-        // Recebe a escolha do cliente
+        //  escolha do cliente
         bytesReceived = recv(client->socket, buffer, BUFFER_SIZE, 0);
         if (bytesReceived <= 0) {
             printf("Cliente %s:%d desconectado.\n", client->ip, client->port);
@@ -134,7 +134,7 @@ DWORD WINAPI handle_client(LPVOID arg) {
         buffer[bytesReceived] = '\0';
 
         if (strncmp(buffer, "listar", 6) == 0) {
-            // Lista todos os clientes conectados
+            // Lista os clientes 
             char listMsg[1024] = "Clientes conectados:\n";
             for (int i = 0; i < clientCount; i++) {
                 char clientInfo[100];
@@ -143,12 +143,12 @@ DWORD WINAPI handle_client(LPVOID arg) {
             }
             send(client->socket, listMsg, strlen(listMsg), 0);
         } else if (strncmp(buffer, "detalhar", 8) == 0) {
-            // Solicita o número do cliente a ser detalhado
+            
             send(client->socket, "Digite o número do cliente: ", 26, 0);
             recv(client->socket, buffer, BUFFER_SIZE, 0);
             int clientIndex = atoi(buffer);
             if (clientIndex >= 0 && clientIndex < clientCount) {
-                // Envia os detalhes do cliente escolhido
+                
                 char details[1024];
                 sprintf(details, "Cliente %d: %s:%d\n", clientIndex, clients[clientIndex].ip, clients[clientIndex].port);
                 send(client->socket, details, strlen(details), 0);
@@ -161,7 +161,7 @@ DWORD WINAPI handle_client(LPVOID arg) {
                 send(client->socket, "Cliente inválido.\n", 18, 0);
             }
         } else if (strncmp(buffer, "sair", 4) == 0) {
-            // Desconecta o cliente
+            
             break;
         }
     }
@@ -175,7 +175,7 @@ void server_control() {
     while (serverRunning) {
         printf("Digite 'close' para encerrar o servidor: ");
         fgets(command, BUFFER_SIZE, stdin);
-        command[strcspn(command, "\n")] = '\0';  // Remove o caractere de nova linha
+        command[strcspn(command, "\n")] = '\0';  
 
         if (strcmp(command, "close") == 0) {
             printf("Encerrando o servidor...\n");
@@ -203,7 +203,7 @@ int main() {
 
     InitializeCriticalSection(&cs);
 
-    // Inicia uma thread para controlar o servidor (fechar com o comando 'close')
+   
     HANDLE controlThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)server_control, NULL, 0, NULL);
 
     while (serverRunning) {
